@@ -6,6 +6,11 @@ on: #Events thats wakes-up the git pipeline
   pull_request: #specific event when someone opens the PR for given branch.
     branches:
       - main
+# FIX: Grant the runner explicit write permissions to generate the UI test reports
+permissions:
+  checks: write
+  pull-requests: write
+  contents: read
 #The Blueprint Matrix (jobs)
 jobs: #A single workflow can do multiple things (e.g., build code, run security scans, deploy to AWS). Every separate task goes under jobs. By default, if you have multiple jobs, they run in parallel.
   build: #This is the custom ID/name given to this specific job. You could name it compile_and_test or anything you like.
@@ -26,9 +31,10 @@ jobs: #A single workflow can do multiple things (e.g., build code, run security 
     # Step 4: Run the Gradle build task (compiles code and runs tests)
       - name: Build with Gradle
         run: ./gradlew build
-      - name: Log tst report
+          # FIX: Used 'check_name' and 'report_paths' as per the action's correct syntax
+      - name: Log test report
         uses: mikepenz/action-junit-report@v4
         if: success() || failure() # Always run this step even if a test fails
         with:
-          name: Test Report
-          path: '**/build/test-results/test/*.xml'
+          check_name: "JUnit Status Report"
+          report_paths: '**/build/test-results/test/*.xml'
