@@ -1,15 +1,17 @@
-name: "Java MS CI with Gradle"
-on:
-  push:
+name: "Java MS CI with Gradle" #purely cosmetic but highly recommended , is going to appear on Actions Summary tab,you could consider it as workflow name
+on: #Events thats wakes-up the git pipeline
+  push: #Specific events type pipeline will listen to it when code pushed to specific branch
+    branches:
+      - main #can be any or multiple baranches
+  pull_request: #specific event when someone opens the PR for given branch.
     branches:
       - main
-  pull_request:
-    branches:
-      - main
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
+#The Blueprint Matrix (jobs)
+jobs: #A single workflow can do multiple things (e.g., build code, run security scans, deploy to AWS). Every separate task goes under jobs. By default, if you have multiple jobs, they run in parallel.
+  build: #This is the custom ID/name given to this specific job. You could name it compile_and_test or anything you like.
+    runs-on: ubuntu-latest #This defines the Runner (the host environment). You are instructing GitHub to spin up a fresh virtual machine running the latest stable version of Ubuntu Linux to execute your code.
+    #The Action Plan (steps)
+    steps: #Steps are executed sequentially, one after the other. If any step fails, the whole job stops right there.
       - name: Checkout Code
         uses: actions/checkout@v4
       - name: Set up JDK 21
@@ -24,3 +26,9 @@ jobs:
     # Step 4: Run the Gradle build task (compiles code and runs tests)
       - name: Build with Gradle
         run: ./gradlew build
+      - name: Log tst report
+        uses: mikepenz/action-junit-report@v4
+        if: success() || failure() # Always run this step even if a test fails
+        with:
+          name: Test Report
+          path: '**/build/test-results/test/*.xml'
