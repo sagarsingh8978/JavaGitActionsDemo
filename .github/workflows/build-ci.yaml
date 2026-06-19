@@ -1,5 +1,4 @@
-name: "java-gradle-plain-workflow"
-
+name: "java-gradle-plain-spring-boot-workflow"
 on:
   push:
     branches:
@@ -14,8 +13,13 @@ permissions:
   contents: read
 
 jobs:
+  # ==========================================
+  # JOB 1: Build, Test, and Scan Code
+  # ==========================================
   build:
     runs-on: ubuntu-latest
+    outputs:
+      jar_name: ${{ steps.find-jar.outputs.JAR_NAME }} # Export the JAR name to Job 2
 
     steps:
       - name: Checkout Code
@@ -33,11 +37,10 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # Step 1: Compile code and generate test report natively
-      - name: Run Tests & Generate Coverage
-        run: ./gradlew clean test jacocoTestReport
+      # This compiles everything AND builds your production executable JAR in build/libs/
+      - name: Run Tests & Build Executable JAR
+        run: ./gradlew clean build jacocoTestReport
 
-      # Step 2: Scan with the standalone container to completely bypass Gradle 9 bugs
       - name: SonarCloud Scan Analysis
         uses: sonarsource/sonarcloud-github-action@master
         env:
@@ -50,3 +53,60 @@ jobs:
         with:
           check_name: "JUnit Status Report"
           report_paths: '**/build/test-results/test/*.xml'
+
+      # Identify the exact name of your compiled JAR dynamically
+      - name: Find Application JAR Name
+        id: find-jar
+        run: |
+          JAR_PATH=$(ls build/libs/*.jar | grep -v "-plain.jar" | head -n 1)
+          JAR_NAME=$(basename $JAR_PATH)
+          echo "JAR_NAME=$JAR_NAME" >> $GITHUB_OUTPUT
+          echo "Found compiled app JAR: $JAR_NAME"
+
+      # PUSH STAGE: Upload your JAR to the free GitHub workspace storage
+      - name: Upload Production Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: springboot-app-jar
+          path: build/libs/*.jar
+          retention-days: 1 # Keeps it clean; expires after 24 hours
+
+  # ==========================================
+  # JOB 2: Pull and Boot the Application
+  # ==========================================
+  deploy_and_run:
+    needs: build # Forces Job 2 to wait until Job 1 passes completely
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up JDK 21 Runtime
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      # PULL STAGE: Download your stored JAR file into this fresh workspace
+      - name: Download Production Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: springboot-app-jar
+          path: my-running-app
+
+      - name: Verify Downloaded Files
+        run: |
+          ls -la my-running-app
+
+      # LAUNCH STAGE: Boot the app in the background and verify it starts up successfully
+      - name: Launch Spring Boot App
+        run: |
+          echo "Launching application..."
+          cd my-running-app
+          
+          # Run jar in background (&) so the runner doesn't freeze waiting for the app to close
+          java -jar ${{ needs.build.outputs.jar_name }} &
+          
+          echo "Waiting 15 seconds for Spring Context initialization..."
+          sleep 15
+          
+          echo "Verifying server process status..."
+          ps aux | grep java
