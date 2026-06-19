@@ -58,8 +58,9 @@ jobs:
       - name: Find Application JAR Name
         id: find-jar
         run: |
-          JAR_PATH=$(ls build/libs/*.jar | grep -v "-plain.jar" | head -n 1)
-          JAR_NAME=$(basename $JAR_PATH)
+          # Using find handles modern file layouts safely and filters out the plain jar natively
+          JAR_PATH=$(find build/libs -maxdepth 1 -name "*.jar" ! -name "*-plain.jar" | head -n 1)
+          JAR_NAME=$(basename "$JAR_PATH")
           echo "JAR_NAME=$JAR_NAME" >> $GITHUB_OUTPUT
           echo "Found compiled app JAR: $JAR_NAME"
 
@@ -103,7 +104,7 @@ jobs:
           cd my-running-app
           
           # Run jar in background (&) so the runner doesn't freeze waiting for the app to close
-          java -jar ${{ needs.build.outputs.jar_name }} &
+          java -jar "${{ needs.build.outputs.jar_name }}" &
           
           echo "Waiting 15 seconds for Spring Context initialization..."
           sleep 15
