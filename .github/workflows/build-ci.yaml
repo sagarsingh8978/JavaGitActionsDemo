@@ -1,4 +1,4 @@
-name: "Java MS CI with Gradle"
+name: "java-gradle-plain-workflow"
 
 on:
   push:
@@ -33,16 +33,16 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # Step 1: Run compilation, tests, and generate the JaCoCo XML report
+      # Step 1: Compile code and generate test report natively
       - name: Run Tests & Generate Coverage
         run: ./gradlew clean test jacocoTestReport
 
-      # Step 2: Extract coverage and push the results to SonarCloud
+      # Step 2: Scan with the standalone container to completely bypass Gradle 9 bugs
       - name: SonarCloud Scan Analysis
+        uses: sonarsource/sonarcloud-github-action@master
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: ./gradlew sonar
 
       - name: Log test report
         uses: mikepenz/action-junit-report@v4

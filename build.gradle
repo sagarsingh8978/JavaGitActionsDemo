@@ -2,8 +2,7 @@ plugins {
 	id 'java'
 	id 'org.springframework.boot' version '4.1.0'
 	id 'io.spring.dependency-management' version '1.1.7'
-	id 'org.sonarqube' version '6.0.1.5171'
-	id 'jacoco'
+	id 'jacoco' // Keep JaCoCo! It works flawlessly with Gradle 9
 }
 
 group = 'com.github.actions'
@@ -37,26 +36,14 @@ tasks.named('test') {
 	finalizedBy jacocoTestReport
 }
 
-// Configure JaCoCo to only include the service layer in the raw metrics
+// Keep the service filter so JaCoCo builds your targeted coverage report
 jacocoTestReport {
 	dependsOn test
 	reports {
 		xml.required = true
 		html.required = true
 	}
-
-	// Force JaCoCo engine to only look at classes inside the service directory
 	classDirectories.setFrom(files(classDirectories.files.collect {
 		fileTree(dir: it, include: '**/service/**')
 	}))
-}
-
-// Dynamically read properties from your sonar-project.properties file
-sonar {
-	properties {
-		// Safe, modern way to read the properties file
-
-		// This MUST stay inside build.gradle because it relies on dynamic Gradle layout paths
-		property "sonar.coverage.jacoco.xmlReportPaths", "${layout.buildDirectory.dir('reports/jacoco/test/jacocoTestReport.xml').get().asFile.absolutePath}"
-	}
 }
