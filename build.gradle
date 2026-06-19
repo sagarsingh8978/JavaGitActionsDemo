@@ -55,20 +55,6 @@ jacocoTestReport {
 sonar {
 	properties {
 		// Safe, modern way to read the properties file
-		def propertiesFile = file('sonar-project.properties')
-		if (propertiesFile.exists()) {
-			java.io.InputStream inputStream = new java.io.FileInputStream(propertiesFile)
-			try {
-				java.util.Properties props = new java.util.Properties()
-				props.load(inputStream)
-				// Safely assign each property to Sonar
-				props.stringPropertyNames().each { name ->
-					property(name, props.getProperty(name))
-				}
-			} finally {
-				inputStream.close()
-			}
-		}
 
 		// This MUST stay inside build.gradle because it relies on dynamic Gradle layout paths
 		property "sonar.coverage.jacoco.xmlReportPaths", "${layout.buildDirectory.dir('reports/jacoco/test/jacocoTestReport.xml').get().asFile.absolutePath}"
