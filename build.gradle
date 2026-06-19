@@ -2,6 +2,8 @@ plugins {
 	id 'java'
 	id 'org.springframework.boot' version '4.1.0'
 	id 'io.spring.dependency-management' version '1.1.7'
+	id 'org.sonarqube' version '5.0.0.4638'
+	id 'jacoco'
 }
 
 group = 'com.github.actions'
@@ -26,6 +28,43 @@ dependencies {
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
+jacoco {
+	toolVersion = "0.8.11"
+}
+
 tasks.named('test') {
 	useJUnitPlatform()
+	finalizedBy jacocoTestReport
+}
+
+// Configure JaCoCo to only include the service layer in the raw metrics
+jacocoTestReport {
+	dependsOn test
+	reports {
+		xml.required = true
+		html.required = true
+	}
+
+	// Force JaCoCo engine to only look at classes inside the service directory
+	classDirectories.setFrom(files(classDirectories.files.collect {
+		fileTree(dir: it, include: '**/service/**')
+	}))
+}
+
+// Dynamically read properties from your sonar-project.properties file
+sonar {
+	properties {
+		def propertiesFile = file('sonar-project.properties')
+		if (propertiesFile.exists()) {
+			def props = new Properties()
+			propertiesFile.withInputStream { props.load(it) }
+			props.each { key, value ->
+				property(key, value)
+			}
+		}
+
+		// System defaults required for processing cloud uploads
+		property "sonar.host.url", "https://sonarcloud.io"
+		property "sonar.coverage.jacoco.xmlReportPaths", "${layout.buildDirectory.dir('reports/jacoco/test/jacocoTestReport.xml').get().asFile.absolutePath}"
+	}
 }

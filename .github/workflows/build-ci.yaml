@@ -1,40 +1,52 @@
-name: "Java MS CI with Gradle" #purely cosmetic but highly recommended , is going to appear on Actions Summary tab,you could consider it as workflow name
-on: #Events thats wakes-up the git pipeline
-  push: #Specific events type pipeline will listen to it when code pushed to specific branch
-    branches:
-      - main #can be any or multiple baranches
-  pull_request: #specific event when someone opens the PR for given branch.
+name: "Java MS CI with Gradle"
+
+on:
+  push:
     branches:
       - main
-# FIX: Grant the runner explicit write permissions to generate the UI test reports
+  pull_request:
+    branches:
+      - main
+
 permissions:
   checks: write
   pull-requests: write
   contents: read
-#The Blueprint Matrix (jobs)
-jobs: #A single workflow can do multiple things (e.g., build code, run security scans, deploy to AWS). Every separate task goes under jobs. By default, if you have multiple jobs, they run in parallel.
-  build: #This is the custom ID/name given to this specific job. You could name it compile_and_test or anything you like.
-    runs-on: ubuntu-latest #This defines the Runner (the host environment). You are instructing GitHub to spin up a fresh virtual machine running the latest stable version of Ubuntu Linux to execute your code.
-    #The Action Plan (steps)
-    steps: #Steps are executed sequentially, one after the other. If any step fails, the whole job stops right there.
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
       - name: Checkout Code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version : '21'
           distribution: 'temurin'
-          cache: 'gradle' # Automatically caches Gradle dependencies to speed up future builds
-     # Step 3: Grant execute permission for the Gradle wrapper script
+          cache: 'gradle'
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
-    # Step 4: Run the Gradle build task (compiles code and runs tests)
-      - name: Build with Gradle
-        run: ./gradlew build
-          # FIX: Used 'check_name' and 'report_paths' as per the action's correct syntax
+
+      # Step 1: Run compilation, tests, and generate the JaCoCo XML report
+      - name: Run Tests & Generate Coverage
+        run: ./gradlew clean test jacocoTestReport
+
+      # Step 2: Extract coverage and push the results to SonarCloud
+      - name: SonarCloud Scan Analysis
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: ./gradlew sonar -Dsonar.token=$SONAR_TOKEN
+
       - name: Log test report
         uses: mikepenz/action-junit-report@v4
-        if: success() || failure() # Always run this step even if a test fails
+        if: success() || failure()
         with:
           check_name: "JUnit Status Report"
           report_paths: '**/build/test-results/test/*.xml'
